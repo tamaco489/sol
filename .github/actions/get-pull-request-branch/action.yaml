@@ -1,0 +1,25 @@
+name: Get pull request branch
+description: PRのURLからマージ元のブランチ名を取得する
+
+inputs:
+  pull_request_url:
+    description: "pull requestのURL"
+    required: true
+  github_token:
+    description: "composite action から secrets が使えないため `secrets.GITHUB_TOKEN` を渡す"
+    required: true
+
+outputs:
+  branch_name:
+    description: "ブランチ名"
+    value: ${{ steps.get_branch_name.outputs.branch_name }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Get branch name
+      shell: bash
+      id: get_branch_name
+      run: |
+        PR=$(curl -H "Authorization: token ${{ inputs.github_token }}" ${{ inputs.pull_request_url }})
+        echo "branch_name=$(echo $PR | jq -r '.head.ref' )" >> $GITHUB_OUTPUT

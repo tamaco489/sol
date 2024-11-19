@@ -1,0 +1,26 @@
+name: Install terraform
+description: |
+  - ./infraディレクトリ配下の各リソースディレクトリ毎に、指定されたバージョンのterraformをインストールを行う。
+  - インストール対象となるバージョンは「provider.tf」の 'required_version' を参照する。
+
+inputs:
+  target_directory:
+    description: "対象リソースのあるディレクトリ"
+    required: true
+
+runs:
+  using: "composite"
+
+  steps:
+    # NOTE: provider.tfからterraformのバージョンを取得する
+    - name: Get terraform version
+      shell: bash
+      id: get_tf_version
+      run: echo "version=$(cat provider.tf | grep 'required_version' $file | cut -d '"' -f2)" >> $GITHUB_OUTPUT
+      working-directory: ${{ inputs.target_directory }}
+
+    # NOTE: 指定したバージョンでterraformをインストールする
+    - name: Setup terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ steps.get_tf_version.outputs.version }}

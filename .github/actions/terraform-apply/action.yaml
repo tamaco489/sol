@@ -1,0 +1,72 @@
+name: Execute terraform apply
+description: |
+  実行対象のディレクトリでterraform applyを実行する。
+inputs:
+  aws_account_id:
+    description: "AWSアカウントのID"
+    required: true
+  terraform_env:
+    description: "実行対象のterraform 環境(stg/prd)"
+    required: true
+  working_directory:
+    description: "実行ディレクトリ"
+    required: true
+  github_token:
+    description: "プルリクにコメントを付けるためのトークン( `secrets.GITHUB_TOKEN` で良い)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/terraform-install
+      with:
+        target_directory: ${{ inputs.working_directory }}
+    - uses: ./.github/actions/aws-credential
+      with:
+        aws_account_id: ${{ inputs.aws_account_id }}
+        terraform_env: ${{ inputs.terraform_env }}
+    - name: Terraform Init
+      shell: bash
+      run: terraform init -reconfigure -backend-config="./tfbackend/${{ inputs.terraform_env }}.tfbackend"
+      working-directory: ${{ inputs.working_directory }}
+    - name: Terraform apply
+      shell: bash
+      id: apply
+      run: |
+        echo ${{ inputs.working_directory }}
+        terraform apply -no-color -auto-approve -input=false -var-file="./tfvars/${{ inputs.terraform_env }}.tfvars"
+      working-directory: ${{ inputs.working_directory }}
+      continue-on-error: true
+
+    - uses: actions/github-script@v7
+      if: ${{ github.event.issue.pull_request }}
+      env:
+        APPLY_STDOUT: ${{ steps.apply.outputs.stdout }}
+        APPLY_STDERR: ${{ steps.apply.outputs.stderr }}
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const output = `#### Terraform Apply(${{ inputs.terraform_workspace }}) 📖\`${{ steps.apply.outcome }}\`
+          Working Directory: \`${{ inputs.working_directory }}\`
+          <details><summary>Show Apply</summary>
+
+          \`\`\`hcl\n
+          ${process.env.APPLY_STDOUT}
+          ${process.env.APPLY_STDERR}
+          \`\`\`
+
+          </details>`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+
+    - name: Exit on apply failures
+      shell: bash
+      if: steps.apply.outcome != 'success'
+      run: |
+        echo "Failed to terraform apply"
+        exit 1

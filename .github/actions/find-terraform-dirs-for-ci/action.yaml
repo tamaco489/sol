@@ -1,0 +1,63 @@
+name: Find terraform dirs for ci
+description:
+  Terraform CIの対象となるディレクトリのリストを取得する。
+
+outputs:
+  dirs:
+    description: "Terraform CIの対象となるディレクトリのリスト"
+    value: ${{ steps.find_terraform_resource_dirs.outputs.dirs }}
+
+runs:
+  # DOC: https://github.com/actions/runner/blob/main/docs/adrs/0549-composite-run-steps.md
+  using: "composite"
+
+  steps:
+    # NOTE: 変更されたファイルを取得する
+    - name: Get changed files
+      id: get_changed_files
+      uses: tj-actions/changed-files@v43
+      with:
+        # 変更対象とするファイルのパターン
+        files: |
+          infra/**/*.{tf,tfvars,tfbackend,yaml,json}
+          infra/**/.terraform-version
+          infra/**/.terraform.lock.hcl
+
+        # 変更対象から除外するファイルのパターン
+        files_ignore: |
+          infra/README.md
+          infra/make/**
+
+    # NOTE: 変更されたファイルからterraformのリソースディレクトリを取得する
+    - name: Find terraform resource dirs
+      id: find_terraform_resource_dirs
+      shell: bash
+      run: |
+        echo "[ACTIONS] lint対象とするファイルを取得します。"
+
+        if [[ ${{ steps.get_changed_files.outputs.all_changed_and_modified_files_count }} == 0 ]]; then
+          echo "[ACTIONS] 変更されたファイルは存在しませんでした。処理を終了します。"
+          echo "dirs=[]" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        files=(`echo "${{ steps.get_changed_files.outputs.all_changed_and_modified_files }}"`)
+        echo "[ACTIONS] 変更があったファイルが存在しました。 lint対象ファイル: $files"
+        changed_dirs=()
+        for file_path in "${files[@]}"; do
+          echo "[ACTIONS] ファイルパス: $file_path"
+
+          dir_path=$(dirname "$file_path")
+          if [[ "$file_path" == *".tf" ]]; then
+            changed_dirs+=("$dir_path")
+          fi
+
+          if [[ $dir_path == *"tfvars"* || $dir_path == *"tfbackend"* || $dir_path == *"template"* ]]; then
+            preceding_dir=$(dirname "$dir_path")
+            changed_dirs+=("$preceding_dir")
+          fi
+        done
+
+        dirs=$(echo "${changed_dirs[@]}" | xargs -n1 | sort -u | jq -R -s -c 'split("\n")[:-1]')
+        echo "[ACTIONS] CI対象とする terraform ディレクトリリスト: $dirs"
+        echo "dirs=$(echo $dirs)" >> $GITHUB_OUTPUT

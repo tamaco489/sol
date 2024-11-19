@@ -1,0 +1,94 @@
+name: Terraform CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+    - infra/**
+    - .github/workflows/terraform-ci.yaml
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      dirs: ${{ steps.find_terraform_dirs.outputs.dirs }}
+    # NOTE: このJobは、変更されたファイルからterraformのリソースディレクトリを取得する
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/find-terraform-dirs-for-ci
+        id: find_terraform_dirs
+
+  lint:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.dirs != '[]' }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        TF_DIR: ${{ fromJson(needs.set-matrix.outputs.dirs) }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-install
+        with:
+          target_directory: ${{ matrix.TF_DIR }}
+
+      # NOTE: AWSのCI用IAMを使用して認証を行う。
+      - uses: ./.github/actions/aws-credential
+        with:
+          terraform_env: stg
+          aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+
+      # NOTE: 実行対象のディレクトリで 'terraform init' を実行する。
+      - uses: ./.github/actions/terraform-lint
+        with:
+          working_directory: ${{ matrix.TF_DIR }}
+          terraform_env: stg
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # NOTE: 実行対象のディレクトリで 'terraform format', 'terraform validate' を実行する。
+      - uses: ./.github/actions/terraform-lint
+        with:
+          working_directory: ${{ matrix.TF_DIR }}
+          terraform_env: stg
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  plan-stg:
+    needs:
+      - set-matrix
+      - lint
+    if: ${{ needs.set-matrix.outputs.dirs != '[]'}}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # WARNING: ここに追加する場合は terraform_cd_stg.yaml にも追加すること
+        TF_DIR: ${{ fromJson(needs.set-matrix.outputs.dirs) }}
+        exclude:
+          - TF_DIR: "infra/credential/github"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/terraform-plan
+        # NOTE: TF_DIR配列がexcludeにより空配列になった場合でもJobが実行されplanに失敗してしまうため、空の場合はskipするようにしている。
+        if: ${{ matrix.TF_DIR != '' }}
+        with:
+          aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+          terraform_env: stg
+          working_directory: ${{ matrix.TF_DIR }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+# TODO: prd構築後に以下へ追加
+  # plan-prd:

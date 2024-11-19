@@ -1,0 +1,109 @@
+name: Terraform Stg CD
+
+on:
+  # NOTE: Github ActionsのイベントトリガーをPR作成時に設定
+  # DOC: https://docs.github.com/ja/actions/using-workflows/events-that-trigger-workflows#issue_comment
+  issue_comment:
+    types: [ created ]
+
+permissions:
+  id-token: write      # GitHub APIを使用するために必要
+  contents: read       # リポジトリのコンテンツを読み取るために必要
+  pull-requests: write # PR作成時にコメントを書き込むために必要
+
+env:
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+  TERRAFORM_ENV: stg
+
+jobs:
+  set-matrix:
+    # NOTE: PRのコメントに `/terraform-apply-stg` が含まれている場合に実行
+    if: contains(github.event.comment.html_url, '/pull/') &&
+      startsWith(github.event.comment.body, '/terraform-apply-stg')
+    runs-on: ubuntu-22.04
+    outputs:
+      dirs: ${{ steps.find_terraform_dirs.outputs.dirs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # NOTE: Github repositoryのfetch操作を行う際に、repositoryの全履歴ではなく最新のコミットのみを取得するように設定 (パフォーマンス向上目的)
+          fetch-depth: 0
+      - uses: ./.github/actions/find-diff-from-main-terraform-dirs
+        id: find_terraform_dirs
+        with:
+          pull_request_url: ${{ github.event.issue.pull_request.url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+  # `terraform apply` を実行
+  apply-stg:
+    # set-matrixのjobが完了するまで待機
+    needs: set-matrix
+
+    # NOTE: set-matrixの `outputs.dirs` が空でない場合に実行
+    if: ${{ needs.set-matrix.outputs.dirs != '[]' }}
+
+    runs-on: ubuntu-22.04
+
+    strategy:
+      # set-matrix内の各jobが失敗しても全てのjobが完了するまでjobを続行する (false: 中断しない)
+      fail-fast: false
+
+      # set-matrixのjobから出力された `dirs` をmatrixに設定
+      matrix:
+        TF_DIR: ${{ fromJson(needs.set-matrix.outputs.dirs) }}
+        # 指定したディレクトリの除外設定
+        # NOTE: `infra/credential/github` ディレクトリではOpen ID Connectに対応するIAM Roleリソースの定義を行っているためはterraform applyを実行しないように環境変数に追加しない
+        exclude:
+          - TF_DIR: "infra/credential/github"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/get-pull-request-branch
+        id: get_branch_name
+        with:
+          pull_request_url: ${{ github.event.issue.pull_request.url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.get_branch_name.outputs.branch_name }}
+
+      # WARNING: Terraform applyを実行
+      - uses: ./.github/actions/terraform-apply
+        # TF_DIR配列がexcludeにより空配列になった場合でもJobが実行されapplyに失敗してしまうため、空の場合はskipするようにしている。
+        if: matrix.TF_DIR != ''
+        id: apply
+        with:
+          aws_account_id: ${{ vars.AWS_ACCOUNT_ID }}
+          terraform_env: ${{ env.TERRAFORM_ENV }}
+          working_directory: ${{ matrix.TF_DIR }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Slack通知
+      - name: Notify slack (Deploy Success)
+        if: success() && matrix.TF_DIR != ''
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_COLOR: 'good'
+          SLACK_MESSAGE: |
+            <!channel>
+            Env   : ${{ env.TERRAFORM_ENV }}
+            URL   : ${{ github.event.issue.html_url }}
+            Branch: ${{ steps.get_branch_name.outputs.branch_name }}
+            User  : ${{ github.event.comment.user.login }}
+            Dir   : ${{ matrix.TF_DIR }}
+            Msg   : terraform applyに成功しました:rocket:
+
+      - name: Notify slack (Deploy Failure)
+        if: failure() && matrix.TF_DIR != ''
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_COLOR: 'danger'
+          SLACK_MESSAGE: |
+            <!channel>
+            Env   : ${{ env.TERRAFORM_ENV }}
+            URL   : ${{ github.event.issue.html_url }}
+            Branch: ${{ steps.get_branch_name.outputs.branch_name }}
+            User  : ${{ github.event.comment.user.login }}
+            Dir   : ${{ matrix.TF_DIR }}
+            Msg   : terraform applyに失敗しました:warning:

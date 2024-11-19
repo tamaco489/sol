@@ -1,0 +1,44 @@
+name: Lint terraform
+description: |
+  - 実行対象のディレクトリで 'terraform format', 'terraform validate' を実行する。
+  - 事前に、対応するバージョンのterraformのインストールと、initによる実行環境の初期化が行われている必要がある。
+
+inputs:
+  working_directory:
+    description: "実行ディレクトリ"
+    required: true
+  terraform_env:
+    description: "実行対象のterraform 環境(stg/prd)"
+    required: true
+  github_token:
+    description: "PRにコメントを設定するためのトークン ※e.g `secrets.GITHUB_TOKEN` で参照する"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Terraform Init
+      shell: bash
+      run: terraform init -reconfigure -backend-config="./tfbackend/${{ inputs.terraform_env }}.tfbackend"
+      working-directory: ${{ inputs.working_directory }}
+
+    - name: Terraform Format
+      shell: bash
+      id: fmt
+      run: terraform fmt -check
+      working-directory: ${{ inputs.working_directory }}
+
+    - name: Terraform Validate
+      shell: bash
+      id: validate
+      run: terraform validate -no-color
+      working-directory: ${{ inputs.working_directory }}
+
+    - name: TFLint Setup
+      uses: reviewdog/action-tflint@v1
+      with:
+        github_token: ${{ inputs.github_token }}
+        working_directory: ${{ inputs.working_directory }}
+        tflint_version: "v0.50.3"
+        fail_on_error: "true"
+        tflint_init: "true"

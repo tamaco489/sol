@@ -1,0 +1,45 @@
+name: Find diff from main terraform directories
+description: |
+  - mainから差分があるterraformディレクトリを取得する
+  - PRのworkflowから呼び出されることを想定
+  - WARNING: `fetch-depth: 0` に指定し、checkoutしてから呼び出す必要があることに要注意
+
+inputs:
+  pull_request_url:
+    description: "pull requestのURL"
+    required: true
+  github_token:
+    description: "composite action から secrets が使えないため `secrets.GITHUB_TOKEN` を渡す"
+    required: true
+
+outputs:
+  dirs:
+    description: "mainから差分があるterraformディレクトリ"
+    value: ${{ steps.find_terraform_dirs.outputs.dirs }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/get-pull-request-branch
+      id: get_branch_name
+      with:
+        pull_request_url: ${{ github.event.issue.pull_request.url }}
+        github_token: ${{ inputs.github_token }}
+
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ steps.get_branch_name.outputs.branch_name }}
+
+    - name: Find terraform dirs
+      id: find_terraform_dirs
+      # NOTE: GitHub Actions上でbashを使用する場合、set -eが有効になっている。
+      # egrepでマッチする値が存在しない場合はexit code 1が返るため、以降の処理が実行されなくなる。
+      # そのため、shell optionでbashに{0}を渡してset -eを無効にする。
+      # DOC: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#exit-codes-and-error-action-preference
+      shell: bash {0}
+      run: |
+        git fetch
+        dirs=$(git diff remotes/origin/main...@ --name-only | xargs dirname | egrep '^infra' | egrep -v '^infra$|^infra/make$' | awk -F "/tfvars" '{print $1}' |  awk -F "/tfbackend" '{print $1}' | sort -u |  jq -R -s -c 'split("\n")[:-1]')
+        echo $dirs # 確認用
+        echo "dirs=${dirs}" >> $GITHUB_OUTPUT

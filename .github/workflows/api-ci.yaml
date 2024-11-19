@@ -1,0 +1,90 @@
+name: GO CI
+
+on:
+  pull_request:
+    paths:
+      - api/**
+      - .github/workflows/api-ci.yaml
+
+env:
+  API_ENV: dev
+
+jobs:
+  test:
+    services:
+      db:
+        image: mysql:8.0
+        ports:
+          - 33306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: password#0
+          MYSQL_DATABASE: test
+          MYSQL_USER: dev
+          MYSQL_PASSWORD: password
+        options: >-
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    runs-on: ubuntu-22.04
+    name: GO BUILD & TEST
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: api/go.mod
+          check-latest: true
+          cache-dependency-path: api/go.sum
+      - name: Start LocalStack
+        env:
+          SERVICES: secretsmanager,s3
+          AWS_DEFAULT_REGION: ap-northeast-1
+          S3_SKIP_SIGNATURE_VALIDATION: 1
+          AWS_ACCESS_KEY_ID: "dummy"
+          AWS_SECRET_ACCESS_KEY: "dummy"
+        run: |
+          pip install localstack awscli-local[ver1]
+          docker pull localstack/localstack
+          DOCKER_FLAGS="-v $(pwd)/scripts/localstack:/etc/localstack/init/ready.d" localstack start -d
+          echo "Waiting for LocalStack startup..."
+          localstack wait -t 20
+          localstack logs
+          echo "Startup complete"
+      - name: Check Dependencies and Build
+        run: make build
+
+      - name: Run Go Test
+        run: make test
+
+      - uses: rtCamp/action-slack-notify@v2.3.0
+        if: failure()
+        env:
+          SLACK_TITLE: "[Failure] GO BUILD & TEST"
+          SLACK_COLOR: danger
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_MESSAGE: "Go build or Test failed, check the Github Actions log."
+
+  lint:
+    runs-on: ubuntu-22.04
+    name: GO LINT
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.56.2
+          working-directory: api
+          args: --timeout 5m
+
+      - uses: rtCamp/action-slack-notify@v2.3.0
+        if: failure()
+        env:
+          SLACK_TITLE: "[Failure] GO LINT"
+          SLACK_COLOR: danger
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_MESSAGE: "Go lint failed, check the Github Actions log."

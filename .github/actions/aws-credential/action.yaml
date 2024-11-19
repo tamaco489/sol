@@ -1,0 +1,32 @@
+name: Authorize AWS
+description: AWSのCI用IAMを使用して認証を行う。
+
+inputs:
+  aws_account_id:
+    description: "AWSアカウントのID"
+    required: true
+
+  terraform_env:
+    description: "実行対象のterraform 環境(stg/prd)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # NOTE: AssumeRoleで使用するcredentialを設定
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: arn:aws:iam::${{ inputs.aws_account_id }}:role/${{ inputs.terraform_env }}-sol-github-actions-oidc-role
+        aws-region: ap-northeast-1
+
+    # NOTE: AssumeRoleで使用するcredentialを取得
+    - run: aws sts get-caller-identity
+      shell: bash
+
+    # NOTE: AssumeRoleで使用するcredentialを環境変数に設定
+    - name: Add profile credentials to ~/.aws/credentials
+      shell: bash
+      run: |
+        aws configure set aws_access_key_id ${{ env.AWS_ACCESS_KEY_ID }} --profile default
+        aws configure set aws_secret_access_key ${{ env.AWS_SECRET_ACCESS_KEY }} --profile default
+        aws configure set region ap-northeast-1 --profile default

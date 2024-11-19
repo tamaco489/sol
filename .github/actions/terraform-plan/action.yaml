@@ -1,0 +1,93 @@
+name: Execute terraform plan
+description: |
+  実行対象のディレクトリでterraform planを実行する。
+
+inputs:
+  aws_account_id:
+    description: "AWSアカウントのID"
+    required: true
+  terraform_env:
+    description: "実行対象のterraform 環境(stg/prd)"
+    required: true
+  working_directory:
+    description: "実行ディレクトリ"
+    required: true
+  github_token:
+    description: "PRにコメントを設定するためのトークン ※e.g `secrets.GITHUB_TOKEN` で参照する"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/terraform-install
+      with:
+        target_directory: ${{ inputs.working_directory }}
+
+    - uses: ./.github/actions/aws-credential
+      with:
+        aws_account_id: ${{ inputs.aws_account_id }}
+        terraform_env: ${{ inputs.terraform_env }}
+
+    - name: Terraform Init
+      shell: bash
+      run: terraform init -reconfigure -backend-config="./tfbackend/${{ inputs.terraform_env }}.tfbackend"
+      working-directory: ${{ inputs.working_directory }}
+
+    # NOTE: terraform planの実行
+    - name: Terraform Plan
+      shell: bash
+      id: plan
+      run: |
+        echo ${{ inputs.working_directory }}
+        terraform plan -detailed-exitcode -no-color -input=false -var-file="./tfvars/${{ inputs.terraform_env }}.tfvars"
+      # DOC: -detailed-exitcode: 0=差分がない, 1=差分がある , 2=エラー
+      # DOC: -no-color         : 色を出力しない
+      # DOC: -input=false      : 対話型入力を無効化
+
+      working-directory: ${{ inputs.working_directory }}
+
+      # job内の特定のstepがエラーで終了した場合でも、全体のjobは終了させず後続のstepを実行する
+      continue-on-error: true
+
+    # NOTE: terraform planの結果をPRにコメントする
+    - uses: actions/github-script@v7
+      # PRに対してのみコメントを追加する
+      if: always() && ${{ github.event.issue.pull_request }}
+
+      # terraform planの結果を環境変数に設定
+      env:
+        PLAN_STDOUT: ${{ steps.plan.outputs.stdout }}
+        PLAN_STDERR: ${{ steps.plan.outputs.stderr }}
+
+      # PRにコメントを追加
+      # DOC: [Marketplace] https://github.com/marketplace/actions/github-script
+      # DOC: [github] https://github.com/actions/github-script
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const output = `#### Terraform Plan(${{ inputs.terraform_env }}) 📖\`${{ steps.plan.outcome }}\`
+          Working Directory: \`${{ inputs.working_directory }}\`
+          <details><summary>Show Plan</summary>
+
+          \`\`\`hcl\n
+          ${process.env.PLAN_STDOUT}
+          ${process.env.PLAN_STDERR}
+          \`\`\`
+
+          </details>`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+
+    # NOTE: terraform planが失敗した場合、jobを失敗させて後続の処理を中断する
+    - name: Exit on plan failures
+      shell: bash
+      if: steps.plan.outcome != 'success'
+      run: |
+        echo "Failed to terraform plan"
+        exit 1
+
