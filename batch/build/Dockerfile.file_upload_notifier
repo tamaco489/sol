@@ -1,0 +1,23 @@
+FROM golang:1.22 as builder
+
+WORKDIR /go/src/api
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+RUN CGO_ENABLED=0 go build -o /go/bin/app -ldflags="-w -s" ./cmd/file_upload_notifier/main.go
+
+FROM debian:bullseye-slim
+
+RUN apt-get update \
+    && apt-get install -y --force-yes --no-install-recommends apt-transport-https curl ca-certificates \
+    && apt-get clean \
+    && apt-get autoremove \
+    && rm -rf /var/lib/apt/lists/*
+
+# COPY --from=public.ecr.aws/datadog/lambda-extension:55 /opt/. /opt/
+
+COPY --from=builder /go/bin/app /
+
+CMD ["/app"]
