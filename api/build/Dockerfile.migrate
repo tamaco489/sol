@@ -1,0 +1,30 @@
+# NOTE: マルチステージビルドを利用して、イメージサイズの軽量化を行う
+# 1. GoアプリケーションのBuild (ビルドツールやソースコードを含まない、実行に必要な最小限のファイルのみのイメージを作成)
+FROM golang:1.22 as builder
+
+ENV SERVICE_NAME migrate
+
+RUN apt-get update
+RUN GOARCH=amd64 GOOS=linux CGO_ENABLED=0 go install github.com/rubenv/sql-migrate/...@v1.6.1
+
+# 2. 1でビルドしたバイナリイメージを軽量なDebian Linux にコピーし、実行環境をビルド
+FROM debian:bullseye-slim
+
+RUN apt-get update \
+  && apt-get install -y --force-yes --no-install-recommends apt-transport-https jq curl unzip ca-certificates \
+  && apt-get clean \
+  && apt-get autoremove \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+  && unzip awscliv2.zip \
+  && ./aws/install
+
+COPY --from=builder --chmod=755 /go/bin/sql-migrate /usr/bin/sql-migrate
+
+COPY internal/db/dbconfig.yml /
+COPY --chmod=755 build/wrapper.sh /
+COPY internal/db/migrations /migrations/
+
+# NOTE: Rollbackを行う場合は`down`に変更すること
+CMD ["bash", "/wrapper.sh", "up"]

@@ -1,0 +1,85 @@
+# version: '3.8'
+
+services:
+  api:
+    platform: linux/amd64
+    image: cosmtrek/air:v1.51.0
+    container_name: sol_api
+    working_dir: /go/src/github.com/takeuchima0/sol/api/
+    volumes:
+      - .:/go/src/github.com/takeuchima0/sol/api/
+      - ~/.cache/go-build:/root/.cache/go-build
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  mysql:
+    platform: linux/amd64
+    image: mysql:8.0.34
+    container_name: sol-db
+    restart: always
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: 'dev'
+      MYSQL_USER: 'dev'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password#0'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_PORT: '3306'
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD" ]
+      interval: 30s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    volumes:
+      - ./db/var/lib:/var/lib/mysql
+      - ./db/etc/mysql/conf.d/my.cnf:/etc/mysql/conf.d/my.cnf
+    ports:
+      - "33306:3306"
+    user: 1000:1000
+
+  migrate:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: build/Dockerfile.migrate
+    container_name: sol-db-migrate
+    image: sol-db-migrate
+    environment:
+      ENV: dev
+      AWS_ACCESS_KEY_ID: "dummy"
+      AWS_SECRET_ACCESS_KEY: "dummy"
+      AWS_REGION: "ap-northeast-1"
+      DISABLE_CORS_CHECKS: 1
+    command: /bin/bash -c "chmod +x /wrapper.sh && tail -f /dev/null"
+    volumes:
+      - ./build/wrapper.sh:/wrapper.sh
+      - ./internal/db/migrations:/migrations
+      - ./internal/db/dbconfig.yml:/dbconfig.yml
+    depends_on:
+      mysql:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: sol-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: secretsmanager,s3
+      DEBUG: 1
+      AWS_DEFAULT_REGION: ap-northeast-1
+      DATA_DIR: /var/lib/localstack
+    volumes:
+      - "./scripts/localstack:/etc/localstack/init/ready.d"

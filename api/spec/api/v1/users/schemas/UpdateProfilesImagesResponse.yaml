@@ -1,0 +1,8 @@
+type: object
+required:
+  - upload_url
+properties:
+  upload_url:
+    type: string
+    description: S3へのファイルアップロード 署名付きURL
+    example: "http://stg-sol-image.localstack:4566//profiles/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=dummy%2F20240430%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Date=20240430T152835Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=89d1ccf1a76332dd776cb82462bd2720868998fa20d83788dc116bb0db663d05"

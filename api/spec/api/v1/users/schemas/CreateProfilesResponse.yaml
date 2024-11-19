@@ -1,0 +1,60 @@
+type: object
+required:
+  - name
+  - address
+  - birthdate
+properties:
+  name:
+    type: object
+    required:
+      - first_name
+      - last_name
+      - first_name_roman
+      - last_name_roman
+    properties:
+      first_name:
+        type: string
+        description: ユーザーの名前
+        example: "太郎"
+      last_name:
+        type: string
+        description: ユーザーの姓
+        example: "山田"
+      first_name_roman:
+        type: string
+        description: ユーザーの名前のローマ字表記
+        example: "Taro"
+      last_name_roman:
+        type: string
+        description: ユーザーの姓のローマ字表記
+        example: "Yamada"
+  address:
+    type: object
+    required:
+      - zip_code
+      - prefecture
+      - city
+      - address
+    properties:
+      zip_code:
+        type: string
+        pattern: '^\d{3}-\d{4}$'
+        description: ユーザーの郵便番号（XXX-XXXX形式）
+        example: "105-6923"
+      prefecture:
+        type: string
+        description: 都道府県
+        example: "東京都"
+      city:
+        type: string
+        description: 市区町村
+        example: "台東区"
+      street:
+        type: string
+        description: 以降の住所
+        example: "浅草2丁目3-1"
+  birthdate:
+    type: string
+    format: date
+    description: ユーザーの生年月日（YYYY-MM-DD形式）
+    example: "2000-01-01"

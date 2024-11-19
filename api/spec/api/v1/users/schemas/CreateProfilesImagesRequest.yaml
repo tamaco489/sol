@@ -1,0 +1,11 @@
+type: object
+required:
+  - extension
+properties:
+  extension:
+    type: string
+    description: 画像の拡張子
+    enum:
+      - jpg
+      - jpeg
+      - png

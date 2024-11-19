@@ -1,0 +1,11 @@
+title: HealthCheck
+type: object
+description: HealthCheckのレスポンス
+required:
+  - message
+properties:
+  message:
+    description: メッセージ。通常はok
+    type: string
+example:
+  message: ok

@@ -1,0 +1,9 @@
+mysql:
+  dialect: mysql
+  datasource: ${DB_USER}:${DB_PASS}@tcp(${DB_HOST}:${DB_PORT})/${DB_NAME}?parseTime=true
+  dir: migrations
+
+test:
+  dialect: mysql
+  datasource: ${DB_USER}:${DB_PASS}@tcp(${DB_HOST}:${DB_PORT})/${DB_NAME}?parseTime=true
+  dir: internal/db/migrations

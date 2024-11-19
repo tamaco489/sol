@@ -1,0 +1,16 @@
+
+-- +migrate Up
+CREATE TABLE IF NOT EXISTS `addresses` (
+  `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+  `user_id` BIGINT UNIQUE NOT NULL,
+  `zip_code` CHAR(7) NOT NULL,
+  `prefecture` VARCHAR(255) NOT NULL,
+  `city` VARCHAR(255) NOT NULL,
+  `street` VARCHAR(255) NOT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_user_id` (`user_id`)
+);
+
+-- +migrate Down
+DROP TABLE IF EXISTS `addresses`;

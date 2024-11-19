@@ -1,0 +1,48 @@
+openapi: 3.0.0
+info:
+  title: SOL API
+  description: SOL API
+  version: 1.0.0
+servers:
+  - url: 'http://localhost:{port}/api/'
+    description: dev
+    variables:
+      port:
+        default: '8080'
+  - url: 'https://api.halu-ulala-proto.com/api/'
+    description: stg
+  - url: 'https://api.hoge.com/api/'
+    description: prd
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+paths:
+  /healthcheck:
+    get:
+      tags:
+        - healthcheck
+      summary: Checks the health of the API
+      description: Returns a simple status object indicating the API is up and running.
+      operationId: healthcheck
+      responses:
+        '200':
+          description: API is up and running
+          content:
+            application/json:
+              schema:
+                $ref: './api/responses/HealthCheck.yaml'
+      security: []  # healthcheckでは認証を必要としないため
+  /v1/users:
+    $ref: './api/v1/users/paths/Users.yaml'
+  /v1/users/profiles:
+    $ref: './api/v1/users/paths/Profiles.yaml'
+  /v1/users/profiles/images:
+    $ref: './api/v1/users/paths/ProfilesImages.yaml'

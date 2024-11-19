@@ -1,0 +1,11 @@
+version: "2"
+sql:
+  - schema: "migrations"
+    queries: "queries"
+    engine: "mysql"
+    gen:
+      go:
+        package: "db"
+        emit_exact_table_names: true
+        sql_package: "database/sql"
+        out: "."

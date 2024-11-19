@@ -1,0 +1,30 @@
+post:
+  tags:
+    - v1
+    - users
+  summary: Create a new user profile
+  description: Create a new user profile (must be done after the user has been created).
+  operationId: createProfile
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/CreateProfilesRequest.yaml'
+  responses:
+    '201':
+      description: User profile has been successfully created.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/CreateProfilesResponse.yaml'
+    '400':
+      $ref: '../../../responses/BadRequest.yaml'
+    '401':
+      $ref: '../../../responses/Unauthorized.yaml'
+    '403':
+      $ref: '../../../responses/Forbidden.yaml'
+    '409':
+      $ref: '../../../responses/AlreadyExists.yaml'
+    '500':
+      $ref: '../../../responses/InternalServerError.yaml'

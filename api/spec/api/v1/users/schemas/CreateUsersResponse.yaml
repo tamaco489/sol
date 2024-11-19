@@ -1,0 +1,12 @@
+title: CreateUser
+type: object
+description: CreateUser のレスポンス
+required:
+  - user_id
+properties:
+  user_id:
+    description: user_idを返却します。
+    type: integer
+    format: int64
+example:
+  user_id: 1234567890

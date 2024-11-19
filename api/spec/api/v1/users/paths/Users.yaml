@@ -1,0 +1,18 @@
+post:
+  tags:
+    - v1
+    - users
+  summary: Create a new user
+  description: Create a new user
+  operationId: createUser
+  responses:
+    '201':
+      description: User has been successfully created.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/CreateUsersResponse.yaml'
+    '401':
+      $ref: '../../../responses/Unauthorized.yaml'
+    '500':
+      $ref: '../../../responses/InternalServerError.yaml'

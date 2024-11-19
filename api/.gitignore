@@ -1,0 +1,10 @@
+.DS_Store
+.env
+/db/var
+/build/sol_api
+
+!.keep
+!/db/etc/mysql/conf.d/my.cnf
+
+*.log
+*.txt

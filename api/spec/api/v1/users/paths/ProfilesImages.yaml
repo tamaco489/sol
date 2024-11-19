@@ -1,0 +1,114 @@
+get:
+  tags:
+    - v1
+    - users
+  summary: Get user profile images
+  description: Get user profile images
+  operationId: getProfileImage
+  parameters:
+    - name: type
+      in: query
+      description: Get images by type (download or upload).
+      schema:
+        type: string
+        example: 'upload'
+        enum:
+          - download
+          - upload
+  responses:
+    '200':
+      description: User profile images have been successfully retrieved.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/GetProfilesImagesResponse.yaml'
+    '400':
+      $ref: '../../../responses/BadRequest.yaml'
+    '401':
+      $ref: '../../../responses/Unauthorized.yaml'
+    '403':
+      $ref: '../../../responses/Forbidden.yaml'
+    '404':
+      $ref: '../../../responses/NotFound.yaml'
+    '500':
+      $ref: '../../../responses/InternalServerError.yaml'
+post:
+  tags:
+    - v1
+    - users
+  summary: Create a new user profile image
+  description: Create a new user profile image
+  operationId: createProfileImage
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/CreateProfilesImagesRequest.yaml'
+  responses:
+    '201':
+      description: User profile has been successfully created.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/CreateProfilesImagesResponse.yaml'
+    '400':
+      $ref: '../../../responses/BadRequest.yaml'
+    '401':
+      $ref: '../../../responses/Unauthorized.yaml'
+    '403':
+      $ref: '../../../responses/Forbidden.yaml'
+    '409':
+      $ref: '../../../responses/AlreadyExists.yaml'
+    '500':
+      $ref: '../../../responses/InternalServerError.yaml'
+put:
+  tags:
+    - v1
+    - users
+  summary: Update a user profile image
+  description: Update a user profile image
+  operationId: updateProfileImage
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: '../schemas/UpdateProfilesImagesRequest.yaml'
+  responses:
+    '201':
+      description: User profile has been successfully updated.
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/UpdateProfilesImagesResponse.yaml'
+    '400':
+      $ref: '../../../responses/BadRequest.yaml'
+    '401':
+      $ref: '../../../responses/Unauthorized.yaml'
+    '403':
+      $ref: '../../../responses/Forbidden.yaml'
+    '404':
+      $ref: '../../../responses/NotFound.yaml'
+    '500':
+      $ref: '../../../responses/InternalServerError.yaml'
+delete:
+    tags:
+        - v1
+        - users
+    summary: Delete a user profile image
+    description: Delete a user profile image
+    operationId: deleteProfileImage
+    responses:
+      '204':
+        description: User profile has been successfully deleted.
+      '400':
+        $ref: '../../../responses/BadRequest.yaml'
+      '401':
+        $ref: '../../../responses/Unauthorized.yaml'
+      '403':
+        $ref: '../../../responses/Forbidden.yaml'
+      '404':
+        $ref: '../../../responses/NotFound.yaml'
+      '500':
+        $ref: '../../../responses/InternalServerError.yaml'

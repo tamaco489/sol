@@ -1,0 +1,421 @@
+openapi: 3.0.0
+info:
+  title: SOL API
+  description: SOL API
+  version: 1.0.0
+servers:
+  - url: http://localhost:{port}/api/
+    description: dev
+    variables:
+      port:
+        default: '8080'
+  - url: https://api.halu-ulala-proto.com/api/
+    description: stg
+  - url: https://api.hoge.com/api/
+    description: prd
+security:
+  - bearerAuth: []
+paths:
+  /healthcheck:
+    get:
+      tags:
+        - healthcheck
+      summary: Checks the health of the API
+      description: Returns a simple status object indicating the API is up and running.
+      operationId: healthcheck
+      responses:
+        '200':
+          description: API is up and running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheck'
+      security: []
+  /v1/users:
+    post:
+      tags:
+        - v1
+        - users
+      summary: Create a new user
+      description: Create a new user
+      operationId: createUser
+      responses:
+        '201':
+          description: User has been successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateUsersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /v1/users/profiles:
+    post:
+      tags:
+        - v1
+        - users
+      summary: Create a new user profile
+      description: Create a new user profile (must be done after the user has been created).
+      operationId: createProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfilesRequest'
+      responses:
+        '201':
+          description: User profile has been successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProfilesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/AlreadyExists'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /v1/users/profiles/images:
+    get:
+      tags:
+        - v1
+        - users
+      summary: Get user profile images
+      description: Get user profile images
+      operationId: getProfileImage
+      parameters:
+        - name: type
+          in: query
+          description: Get images by type (download or upload).
+          schema:
+            type: string
+            example: upload
+            enum:
+              - download
+              - upload
+      responses:
+        '200':
+          description: User profile images have been successfully retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetProfilesImagesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags:
+        - v1
+        - users
+      summary: Create a new user profile image
+      description: Create a new user profile image
+      operationId: createProfileImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfilesImagesRequest'
+      responses:
+        '201':
+          description: User profile has been successfully created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProfilesImagesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/AlreadyExists'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      tags:
+        - v1
+        - users
+      summary: Update a user profile image
+      description: Update a user profile image
+      operationId: updateProfileImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfilesImagesRequest'
+      responses:
+        '201':
+          description: User profile has been successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfilesImagesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags:
+        - v1
+        - users
+      summary: Delete a user profile image
+      description: Delete a user profile image
+      operationId: deleteProfileImage
+      responses:
+        '204':
+          description: User profile has been successfully deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    HealthCheck:
+      title: HealthCheck
+      type: object
+      description: HealthCheckのレスポンス
+      required:
+        - message
+      properties:
+        message:
+          description: メッセージ。通常はok
+          type: string
+      example:
+        message: ok
+    CreateUsersResponse:
+      title: CreateUser
+      type: object
+      description: CreateUser のレスポンス
+      required:
+        - user_id
+      properties:
+        user_id:
+          description: user_idを返却します。
+          type: integer
+          format: int64
+      example:
+        user_id: 1234567890
+    CreateProfilesRequest:
+      type: object
+      required:
+        - name
+        - address
+        - birthdate
+      properties:
+        name:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - first_name_roman
+            - last_name_roman
+          properties:
+            first_name:
+              type: string
+              description: ユーザーの名前
+              example: 太郎
+            last_name:
+              type: string
+              description: ユーザーの姓
+              example: 山田
+            first_name_roman:
+              type: string
+              description: ユーザーの名前のローマ字表記
+              example: Taro
+            last_name_roman:
+              type: string
+              description: ユーザーの姓のローマ字表記
+              example: Yamada
+        address:
+          type: object
+          required:
+            - zip_code
+            - prefecture
+            - city
+            - address
+          properties:
+            zip_code:
+              type: string
+              pattern: ^\d{3}-\d{4}$
+              description: ユーザーの郵便番号（XXX-XXXX形式）
+              example: 105-6923
+            prefecture:
+              type: string
+              description: 都道府県
+              example: 東京都
+            city:
+              type: string
+              description: 市区町村
+              example: 台東区
+            street:
+              type: string
+              description: 以降の住所
+              example: 浅草2丁目3-1
+        birthdate:
+          type: string
+          format: date
+          description: ユーザーの生年月日（YYYY-MM-DD形式）
+          example: '2000-01-01'
+    CreateProfilesResponse:
+      type: object
+      required:
+        - name
+        - address
+        - birthdate
+      properties:
+        name:
+          type: object
+          required:
+            - first_name
+            - last_name
+            - first_name_roman
+            - last_name_roman
+          properties:
+            first_name:
+              type: string
+              description: ユーザーの名前
+              example: 太郎
+            last_name:
+              type: string
+              description: ユーザーの姓
+              example: 山田
+            first_name_roman:
+              type: string
+              description: ユーザーの名前のローマ字表記
+              example: Taro
+            last_name_roman:
+              type: string
+              description: ユーザーの姓のローマ字表記
+              example: Yamada
+        address:
+          type: object
+          required:
+            - zip_code
+            - prefecture
+            - city
+            - address
+          properties:
+            zip_code:
+              type: string
+              pattern: ^\d{3}-\d{4}$
+              description: ユーザーの郵便番号（XXX-XXXX形式）
+              example: 105-6923
+            prefecture:
+              type: string
+              description: 都道府県
+              example: 東京都
+            city:
+              type: string
+              description: 市区町村
+              example: 台東区
+            street:
+              type: string
+              description: 以降の住所
+              example: 浅草2丁目3-1
+        birthdate:
+          type: string
+          format: date
+          description: ユーザーの生年月日（YYYY-MM-DD形式）
+          example: '2000-01-01'
+    GetProfilesImagesResponse:
+      type: object
+      required:
+        - url
+        - extension
+      properties:
+        url:
+          type: string
+          description: S3へのファイルアップロード/ダウンロード 署名付きURL
+          example: http://stg-sol-image.localstack:4566//profiles/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=dummy%2F20240430%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Date=20240430T152835Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=89d1ccf1a76332dd776cb82462bd2720868998fa20d83788dc116bb0db663d05
+        extension:
+          type: string
+          description: 画像の拡張子
+          example: jpg
+    UpdateProfilesImagesRequest:
+      type: object
+      required:
+        - extension
+      properties:
+        extension:
+          type: string
+          description: 画像の拡張子
+          enum:
+            - jpg
+            - jpeg
+            - png
+    UpdateProfilesImagesResponse:
+      type: object
+      required:
+        - upload_url
+      properties:
+        upload_url:
+          type: string
+          description: S3へのファイルアップロード 署名付きURL
+          example: http://stg-sol-image.localstack:4566//profiles/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=dummy%2F20240430%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Date=20240430T152835Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=89d1ccf1a76332dd776cb82462bd2720868998fa20d83788dc116bb0db663d05
+    CreateProfilesImagesRequest:
+      type: object
+      required:
+        - extension
+      properties:
+        extension:
+          type: string
+          description: 画像の拡張子
+          enum:
+            - jpg
+            - jpeg
+            - png
+    CreateProfilesImagesResponse:
+      type: object
+      required:
+        - upload_url
+      properties:
+        upload_url:
+          type: string
+          description: S3へのファイルアップロード 署名付きURL
+          example: http://stg-sol-image.localstack:4566//profiles/1/image_1.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=dummy%2F20240430%2Fap-northeast-1%2Fs3%2Faws4_request&X-Amz-Date=20240430T152835Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&x-id=GetObject&X-Amz-Signature=89d1ccf1a76332dd776cb82462bd2720868998fa20d83788dc116bb0db663d05
+  responses:
+    Unauthorized:
+      description: Unauthorized
+    InternalServerError:
+      description: Internal Server Error
+    BadRequest:
+      description: Bad Request
+    Forbidden:
+      description: Forbidden
+    AlreadyExists:
+      description: Already Exists
+    NotFound:
+      description: Not Found
